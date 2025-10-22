@@ -59,6 +59,14 @@
                 border-bottom: 1px solid #554122;
             }
 
+            #group-rank {
+                color: #ffffff;
+                font-size: 1.2em;
+                font-family: "Runescape";
+                font-weight: 300;
+                text-align: center;
+            }
+
             .highscores-container {
                 display: flex;
                 gap: 7px;
@@ -228,6 +236,7 @@
                 const csvText = await response.text();
                 return parseCSVToSkills(csvText);
             }
+
 
             function getComparisonColor(user1Exp, user2Exp) {
                 const exp1 = user1Exp > 0 ? user1Exp : 0;
