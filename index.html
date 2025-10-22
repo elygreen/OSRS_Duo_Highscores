@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Ely Lucian OSRS Highscore Comparison</title>
+        <style>
+
+            @font-face {
+                font-family: "Runescape";
+                src: url("fonts/runescape.ttf") format("truetype");
+                font-weight: normal;
+                font-style: normal
+            }
+
+            @font-face {
+                font-family: "Runescape";
+                src: url("fonts/runescape_bold.ttf") format("truetype");
+                font-weight: bold;
+                font-style: normal;
+            }
+
+            @font-face {
+                font-family: "Runescape";
+                src: url("fonts/runescape_small.ttf") format("truetype");
+                font-weight: 300;
+                font-style: normal;
+            }
+
+
+            body {
+                background-color: rgb(77, 47, 33);
+                padding: 3px;
+                text-shadow: 1px 1px 1px #000;
+            }
+
+            header { 
+                text-align: center;
+                margin-bottom: 1px;
+                padding: 0;
+            }
+
+            h1 {
+                color: gold;
+                font-size: 2.5em;
+                font-family: "Runescape";
+                font-weight: bold;
+                margin-top: 1;
+                margin-bottom: 1;
+            }
+
+            h2 {
+                font-family: "Runescape";
+                font-weight: bold;
+                color: #ff981f;
+                text-align: center;
+                margin-top: 0;
+                padding-bottom: 2px;
+                border-bottom: 1px solid #554122;
+            }
+
+            .highscores-container {
+                display: flex;
+                gap: 7px;
+                flex-wrap: wrap;
+                justify-content: center;
+                margin-top: 3px;
+            }
+
+            .table-wrapper {
+                flex: 1;
+                min-width: 350px;
+                max-width: 550px;
+                background-color: #4b3617;
+                padding: 12px;
+                border: 3px solid #332d1d;
+                border-radius: 6px;
+                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.7);
+            }
+
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                text-align: right;
+                font-size: 1.0em;
+            }
+
+            th {
+                font-family: "Runescape";
+                font-weight: bold;
+                padding: 8px 5px;
+                border-bottom: 1px solid #5a4b33;
+                color: #e0d0b0;
+                background-color: #30260d;
+                color: #ff981f;
+                font-weight: bold;
+            }
+
+            td {
+                font-family: "Runescape";
+                font-weight: bold;
+                padding: 3px 5px;
+                border-bottom: 1px solid #5a4b33;
+                color: #e0d0b0;
+            }
+
+            th:first-child, td:first-child {
+                text-align: left;
+            }
+
+            tr:nth-child(even) {
+                background-color: #433215;
+            }
+
+            tr:first-child {
+                font-weight: bold;
+                background-color: #634b22 !important;
+                color: #fff;
+            }
+
+            .skill-name-cell {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+            }
+
+            .skill-icon {
+                width: 21px;
+                height: 21px;
+                vertical-align: middle;
+                filter: drop-shadow(0 0 1px black);
+            }
+
+            .recent-xp-gain { 
+                color: #00eeff;
+            }
+
+            .recent-xp-none {
+                color: rgb(255, 255, 255);
+            }
+
+            .error-message {
+                color: red;
+                text-align: center;
+                font-weight: bold;
+                margin-top: 15px;
+                background-color: #332d1d;
+                padding: 10px;
+                border-radius: 4px;
+                border: 1px solid #ff4d4d;
+            }
+
+        </style>
+    </head>
+
+    <body>
+        <header>
+            <h1>Ely & Lucian's Duo Highscores</h1>
+        </header>
+
+        <div id="error-message" class="error-message" style="display:none;">
+        </div>
+
+        <div class="highscores-container">
+            <div class="table-wrapper">
+                <h2 id="user-title">Duo Ely</h2>
+                <div id="user-hiscores-table">Loading...</div>
+            </div>
+
+            <div class="table-wrapper">
+                <h2 id="friend-title">Duo Lucian</h2>
+                <div id="friend-hiscores-table">Loading...</div>
+            </div>
+        </div>
+        <script>
+            const USER_1_RSN = "Duo Ely";
+            const USER_2_RSN = "Duo Lucian";
+            const SKILL_DATA = [
+                { name: "Overall", wikiName: "Overall" },
+                { name: "Attack", wikiName: "Attack" },
+                { name: "Defence", wikiName: "Defence" },
+                { name: "Strength", wikiName: "Strength" },
+                { name: "Hitpoints", wikiName: "Hitpoints" },
+                { name: "Ranged", wikiName: "Ranged" },
+                { name: "Prayer", wikiName: "Prayer" },
+                { name: "Magic", wikiName: "Magic" },
+                { name: "Cooking", wikiName: "Cooking" },
+                { name: "Woodcutting", wikiName: "Woodcutting" },
+                { name: "Fletching", wikiName: "Fletching" },
+                { name: "Fishing", wikiName: "Fishing" },
+                { name: "Firemaking", wikiName: "Firemaking" },
+                { name: "Crafting", wikiName: "Crafting" },
+                { name: "Smithing", wikiName: "Smithing" },
+                { name: "Mining", wikiName: "Mining" },
+                { name: "Herblore", wikiName: "Herblore" },
+                { name: "Agility", wikiName: "Agility" },
+                { name: "Thieving", wikiName: "Thieving" },
+                { name: "Slayer", wikiName: "Slayer" },
+                { name: "Farming", wikiName: "Farming" },
+                { name: "Runecrafting", wikiName: "Runecraft" },
+                { name: "Hunter", wikiName: "Hunter" },
+                { name: "Construction", wikiName: "Construction" }
+            ];
+
+            const ICON_SIZE = "21px"
+            const API_BASE_URL = "https://corsproxy.io/?url=http://services.runescape.com/m=hiscore_oldschool/index_lite.ws?player=";
+            const ICON_BASE_URL = "https://oldschool.runescape.wiki/images/thumb/";
+            const SKILL_TOTAL_ICON = "https://oldschool.runescape.wiki/images/Stats_icon.png?1b467"
+            const MAX_LEVEL_XP = 13034431;
+
+            function getIconUrl(wikiName) {
+                if (wikiName == "Overall"){
+                    return SKILL_TOTAL_ICON;
+                }
+                const filename = `${wikiName}_icon.png`;
+                const encodedFilename = filename.replace(/ /g, "_");
+                return `${ICON_BASE_URL}${encodedFilename}/${ICON_SIZE}-${encodedFilename}`;
+            }
+
+            async function fetchHiscores(username) {
+                const url = API_BASE_URL + encodeURIComponent(username);
+                const response = await fetch(url);
+
+                if (!response.ok || response.status === 404) {
+                    throw new Error("Error with API or fetching username")
+                }
+
+                const csvText = await response.text();
+                return parseCSVToSkills(csvText);
+            }
+
+            function getComparisonColor(user1Exp, user2Exp) {
+                const exp1 = user1Exp > 0 ? user1Exp : 0;
+                const exp2 = user2Exp > 0 ? user2Exp : 0;
+
+                const COLOR_RED = [255, 74, 74];
+                const COLOR_WHITE_TIE = [255, 255, 255]; 
+                const COLOR_GREEN = [74, 255, 74]; 
+
+                if (exp1 === 0 && exp2 === 0) {
+                    return "rgb(255, 255, 255)"; 
+                }
+                
+                if (exp1 === exp2) {
+                    return "rgb(255, 255, 255)";
+                }
+
+                const ratio1 = Math.min(1, exp1 / MAX_LEVEL_XP);
+                const ratio2 = Math.min(1, exp2 / MAX_LEVEL_XP);
+                const differential = ratio1 - ratio2;
+                const blendFactor = (differential + 1) / 2;
+
+                let r, g, b;
+
+                if (blendFactor <= 0.5) {
+                    const localFactor = blendFactor * 2;
+                    r = Math.round(COLOR_RED[0] + (COLOR_WHITE_TIE[0] - COLOR_RED[0]) * localFactor);
+                    g = Math.round(COLOR_RED[1] + (COLOR_WHITE_TIE[1] - COLOR_RED[1]) * localFactor);
+                    b = Math.round(COLOR_RED[2] + (COLOR_WHITE_TIE[2] - COLOR_RED[2]) * localFactor);
+                }
+                else {
+                    
+                    const localFactor = (blendFactor - 0.5) * 2;
+                    r = Math.round(COLOR_WHITE_TIE[0] + (COLOR_GREEN[0] - COLOR_WHITE_TIE[0]) * localFactor);
+                    g = Math.round(COLOR_WHITE_TIE[1] + (COLOR_GREEN[1] - COLOR_WHITE_TIE[1]) * localFactor);
+                    b = Math.round(COLOR_WHITE_TIE[2] + (COLOR_GREEN[2] - COLOR_WHITE_TIE[2]) * localFactor);
+                }
+
+                return `rgb(${r}, ${g}, ${b})`;
+            }
+
+            function parseCSVToSkills(csvText){
+                const lines = csvText.trim().split("\n");
+                const skillsData = [];
+
+                for (let i = 0; i < SKILL_DATA.length && i < lines.length; i++) {
+                    const skillInfo = SKILL_DATA[i];
+                    const parts = lines[i].split(",");
+                    const rank = parseInt(parts[0] || 0);
+                    const level = parseInt(parts[1] || 0); 
+                    const exp = parseInt(parts[2] || 0);
+
+                    const skillObject = { 
+                        name: skillInfo.name,
+                        wikiName: skillInfo.wikiName,
+                        rank: rank.toLocaleString(),
+                        level: level.toLocaleString(),
+                        exp: exp.toLocaleString(),
+                        rawExp: exp,
+                        recentExp: 0
+                    };
+                    skillsData.push(skillObject);
+                }
+                return skillsData;
+            }
+
+            function saveHiscores(username, data) {
+                try {
+                    localStorage.setItem(`osrs_hiscores_${username.replace(/ /g, '_')}`, JSON.stringify(data));
+                }
+                catch (e) {
+                    console.error("Could not save to localSotrage:", e);
+                }
+            }
+
+            function loadHiscores(username) {
+                try {
+                    const data = localStorage.getItem(`osrs_hiscores_${username.replace(/ /g, '_')}`);
+                    return data ? JSON.parse(data) : null;
+                } catch (e) {
+                    console.error("Could not load from localStorage:", e);
+                    return null;
+                }
+            }
+
+            function compareAndPrepareDisplayData(currentData, oldData) {
+                const displayData = [];
+                for (let i = 0; i < currentData.length; i++) {
+                    const currentSkill = currentData[i];
+                    let recentExp = 0;
+
+                    if (oldData && oldData[i]) {
+                        const oldSkill = oldData[i];
+                        recentExp = Math.max(0, currentSkill.rawExp - oldSkill.rawExp);
+                    }
+
+                    displayData.push({
+                        ...currentSkill,
+                        recentExp: recentExp.toLocaleString()
+                    });
+                }
+                return displayData;
+            }
+
+            function renderTable(elementId, data, opponentData) {
+                const container = document.getElementById(elementId);
+                
+                let html = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="text-align:left;">Skill</th>
+                                <th>Level/Score</th>
+                                <th>Rank</th>
+                                <th>Experience</th>
+                                <th>Recent</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                data.forEach((skill, index) => {
+                    const isUnranked = skill.rank === "0" || skill.rank === "-1";
+                    
+                    let comparsionColorStyle = "";
+                    let colorStyle = "";
+                    
+                    if (opponentData && index < opponentData.length) {
+                        const currentExp = skill.rawExp;
+                        const opponentExp = opponentData[index].rawExp;
+                        
+                        const calculatedColor = getComparisonColor(currentExp, opponentExp);
+                        colorStyle = `style="color: ${calculatedColor} !important;"`;
+                    }
+
+                    const recentExpClass = skill.recentExp !== "0" ? "recent-xp-gain" : "recent-xp-none";
+                    const recentExpDisplay = skill.recentExp === '0' ? '-' : `+${skill.recentExp}`;
+
+                    html += `
+                        <tr>
+                            <td class="skill-name-cell">
+                                <img src="${getIconUrl(skill.wikiName)}" class="skill-icon" alt="${skill.name} icon">
+                                <span>${skill.name}</span>
+                            </td>
+                            <td ${colorStyle}>${skill.level}</td>
+                            <td>${isUnranked ? 'Unranked' : skill.rank}</td>
+                            <td ${colorStyle}>${skill.exp === '-1' || skill.exp === '0' ? 'N/A' : skill.exp}</td>
+                            <td class="${recentExpClass}">${recentExpDisplay}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += `
+                        </tbody>
+                    </table>
+                `;
+                container.innerHTML = html;
+            }
+
+            async function fetchAndDisplayScores() {
+                const userRsnClean = USER_1_RSN.replace(/ /g, '+');
+                const friendRsnClean = USER_2_RSN.replace(/ /g, '+');
+                
+                document.getElementById('user-title').textContent = `${USER_1_RSN}'s Highscores`;
+                document.getElementById('friend-title').textContent = `${USER_2_RSN}'s Highscores`;
+
+                const user1OldHiscores = loadHiscores(USER_1_RSN);
+                const user2OldHiscores = loadHiscores(USER_2_RSN);
+                
+                let user_1_hiscores = null;
+                let user_2_hiscores = null;
+
+                const [userPromise, friendPromise] = await Promise.allSettled([
+                    fetchHiscores(userRsnClean),
+                    fetchHiscores(friendRsnClean)
+                ]);
+
+                // Handle User 1
+                if (userPromise.status === 'fulfilled') {
+                    user_1_hiscores = userPromise.value;
+                    saveHiscores(USER_1_RSN, user_1_hiscores);
+                }
+                else {
+                    const message = `<p class="error-message">Highscores not found for **${USER_1_RSN}**. Check spelling.</p>`;
+                    document.getElementById('user-hiscores-table').innerHTML = message;
+                    console.error(`Error fetching user scores for ${USER_1_RSN}:`, userPromise.reason);
+                }
+
+                // Handle User 2 
+                if (friendPromise.status === 'fulfilled') {
+                    user_2_hiscores = friendPromise.value;
+                    saveHiscores(USER_2_RSN, user_2_hiscores);
+                }
+                else {
+                    const message = `<p class="error-message">Highscores not found for **${USER_2_RSN}**. Check spelling.</p>`;
+                    document.getElementById('friend-hiscores-table').innerHTML = message;
+                    console.error(`Error fetching friend scores for ${USER_2_RSN}:`, friendPromise.reason);
+                }
+                
+                if (user_1_hiscores && user_2_hiscores) {
+                    const user1DisplayData = compareAndPrepareDisplayData(user_1_hiscores, user1OldHiscores);
+                    const user2DisplayData = compareAndPrepareDisplayData(user_2_hiscores, user2OldHiscores);
+                    renderTable('user-hiscores-table', user1DisplayData, user2DisplayData); 
+                    renderTable('friend-hiscores-table', user2DisplayData, user1DisplayData);
+                }
+            }
+            document.addEventListener('DOMContentLoaded', fetchAndDisplayScores);
+
+        </script>
+
+    </body>
+
+</html>
