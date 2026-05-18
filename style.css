@@ -38,8 +38,8 @@ h1 {
     font-size: 2.5em;
     font-family: "Runescape";
     font-weight: bold;
-    margin-top: 1;
-    margin-bottom: 1;
+    margin-top: 0px;
+    margin-bottom: 0px;
 }
 
 h2 {
@@ -54,10 +54,12 @@ h2 {
 
 #group-rank {
     color: #ffffff;
-    font-size: 1.2em;
+    font-size: 1.5em;
     font-family: "Runescape";
-    font-weight: 300;
+    font-weight: normal;
     text-align: center;
+    margin-top: 5px;
+    margin-bottom: 5px;
 }
 
 .highscores-container {

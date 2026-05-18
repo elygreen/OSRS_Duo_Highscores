@@ -283,6 +283,12 @@ async function fetchAndDisplayScores() {
     document.getElementById('user-title').textContent = `${USER_1_RSN}'s Highscores`;
     document.getElementById('friend-title').textContent = `${USER_2_RSN}'s Highscores`;
 
+    const groupRankElement = document.getElementById('group-rank');
+    if (groupRankElement) {
+        const rankText = await fetchGroupRank("Castle Duo");
+        groupRankElement.innerHTML = `Castle Duo Rank: <span style="color: gold;">${rankText}</span>`;
+    }
+
     const keys = {
         daily: getDailyPeriodKey(),
         weekly: getWeeklyPeriodKey(),
@@ -348,6 +354,42 @@ async function fetchAndDisplayScores() {
         const u2DisplayData = compareAndPrepareDisplayData(u2_live, u2Baselines);
         renderTable('user-hiscores-table', u1DisplayData); 
         renderTable('friend-hiscores-table', u2DisplayData);
+    }
+}
+
+async function fetchGroupRank(groupName) {
+    // The official hiscores URL for your group
+    const targetUrl = `https://secure.runescape.com/m=hiscore_oldschool_ironman/group-ironman/?groupName=${encodeURIComponent(groupName)}`;
+    // Run it through the proxy to bypass browser CORS blocks
+    const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`;
+
+    try {
+        const response = await fetch(proxyUrl);
+        if (!response.ok) throw new Error("Failed to fetch group hiscores");
+        
+        const htmlText = await response.text();
+        
+        // Convert the raw HTML text into a searchable DOM object
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlText, "text/html");
+        
+        // Grab every table row on the page
+        const rows = doc.querySelectorAll("tr");
+        
+        for (const row of rows) {
+            // Find the row that belongs to your group
+            if (row.textContent.toLowerCase().includes(groupName.toLowerCase())) {
+                const cells = row.querySelectorAll("td");
+                if (cells.length > 0) {
+                    // The rank is always the first <td> column in the row
+                    return cells[0].textContent.trim();
+                }
+            }
+        }
+        return "Unranked";
+    } catch (error) {
+        console.error("Could not fetch group rank:", error);
+        return "N/A";
     }
 }
 
