@@ -30,7 +30,7 @@ const SKILL_DATA = [
 ];
 
 const ICON_SIZE = "21px";
-const API_BASE_URL = "https://corsproxy.io/?url=http://services.runescape.com/m=hiscore_oldschool/index_lite.ws?player=";
+const API_BASE_URL = "https://services.runescape.com/m=hiscore_oldschool/index_lite.ws?player=";
 const ICON_BASE_URL = "https://oldschool.runescape.wiki/images/thumb/";
 const SKILL_TOTAL_ICON = "https://oldschool.runescape.wiki/images/Stats_icon.png?1b467";
 const MAX_LEVEL_XP = 13034431;
@@ -63,7 +63,7 @@ function getMonthlyPeriodKey() {
     const now = new Date();
     const calcDate = new Date(now.getTime());
     if (calcDate.getDate() === 1 && calcDate.getHours() < RESET_HOUR) {
-        calcDate.setDate(0); // Shunt to the last day of the previous month
+        calcDate.setDate(0);
     }
     return `${calcDate.getFullYear()}-${calcDate.getMonth()}`;
 }
@@ -80,7 +80,10 @@ function getIconUrl(wikiName) {
 }
 
 async function fetchHiscores(username) {
-    const url = API_BASE_URL + encodeURIComponent(username);
+    // Append a unique timestamp (&cb=...) to force the proxy to pull fresh data
+    const targetUrl = `${API_BASE_URL}${encodeURIComponent(username)}&cb=${Date.now()}`;
+    const url = `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`;
+    
     const response = await fetch(url);
 
     if (!response.ok || response.status === 404) {
@@ -93,11 +96,8 @@ async function fetchHiscores(username) {
 
 function getProgressColor(exp) {
     const safeExp = exp > 0 ? exp : 0;
-    
-    // Define our new anchor points
     const MIDPOINT_XP = 1210421;   // Experience required for Level 75
     const MAX_LEVEL_XP = 13034431; // Experience required for Level 99
-    
     let ratio;
     
     // Piecewise calculation to force Level 75 to act as the 50% ratio mark
@@ -149,7 +149,7 @@ function parseCSVToSkills(csvText){
             wikiName: skillInfo.wikiName,
             rank: rank.toLocaleString(),
             level: level.toLocaleString(),
-            rawLevel: level, // Added for level math
+            rawLevel: level,
             exp: exp.toLocaleString(),
             rawExp: exp
         };
@@ -250,7 +250,6 @@ function renderTable(elementId, data) {
     `;
 
     data.forEach((skill) => {
-        // Calculate the color strictly based on the player's own XP
         const calculatedColor = getProgressColor(skill.rawExp);
         const colorStyle = `style="color: ${calculatedColor} !important;"`;
 
@@ -287,8 +286,6 @@ async function fetchAndDisplayScores() {
     if (groupRankElement) {
         const rankText = await fetchGroupRank("Castle Duo");
         let rankDiffDisplay = "";
-
-        // Remove commas and parse to an integer. Returns NaN if "Unranked".
         const currentRankNum = parseInt(rankText.replace(/,/g, ''));
         
         if (!isNaN(currentRankNum)) {
@@ -390,7 +387,6 @@ async function fetchAndDisplayScores() {
         console.error(`Error fetching friend scores for ${USER_2_RSN}:`, friendPromise.reason);
     }
     
-    // Render
     if (u1_live && u2_live) {
         const u1DisplayData = compareAndPrepareDisplayData(u1_live, u1Baselines);
         const u2DisplayData = compareAndPrepareDisplayData(u2_live, u2Baselines);
@@ -400,9 +396,7 @@ async function fetchAndDisplayScores() {
 }
 
 async function fetchGroupRank(groupName) {
-    // The official hiscores URL for your group
-    const targetUrl = `https://secure.runescape.com/m=hiscore_oldschool_ironman/group-ironman/?groupName=${encodeURIComponent(groupName)}`;
-    // Run it through the proxy to bypass browser CORS blocks
+    const targetUrl = `https://secure.runescape.com/m=hiscore_oldschool_ironman/group-ironman/?groupName=${encodeURIComponent(groupName)}&cb=${Date.now()}`;
     const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`;
 
     try {
@@ -410,20 +404,14 @@ async function fetchGroupRank(groupName) {
         if (!response.ok) throw new Error("Failed to fetch group hiscores");
         
         const htmlText = await response.text();
-        
-        // Convert the raw HTML text into a searchable DOM object
         const parser = new DOMParser();
         const doc = parser.parseFromString(htmlText, "text/html");
-        
-        // Grab every table row on the page
         const rows = doc.querySelectorAll("tr");
         
         for (const row of rows) {
-            // Find the row that belongs to your group
             if (row.textContent.toLowerCase().includes(groupName.toLowerCase())) {
                 const cells = row.querySelectorAll("td");
                 if (cells.length > 0) {
-                    // The rank is always the first <td> column in the row
                     return cells[0].textContent.trim();
                 }
             }
