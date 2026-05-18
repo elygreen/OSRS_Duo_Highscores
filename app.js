@@ -1,6 +1,6 @@
 const USER_1_RSN = "Duo Ely";
 const USER_2_RSN = "Duo Lucian";
-const RESET_HOUR = 12;
+const RESET_HOUR = 5;
 const SKILL_DATA = [
     { name: "Overall", wikiName: "Overall" },
     { name: "Attack", wikiName: "Attack" },
