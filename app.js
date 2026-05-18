@@ -91,34 +91,43 @@ async function fetchHiscores(username) {
     return parseCSVToSkills(csvText);
 }
 
-function getComparisonColor(user1Exp, user2Exp) {
-    const exp1 = user1Exp > 0 ? user1Exp : 0;
-    const exp2 = user2Exp > 0 ? user2Exp : 0;
+function getProgressColor(exp) {
+    const safeExp = exp > 0 ? exp : 0;
+    
+    // Define our new anchor points
+    const MIDPOINT_XP = 1210421;   // Experience required for Level 75
+    const MAX_LEVEL_XP = 13034431; // Experience required for Level 99
+    
+    let ratio;
+    
+    // Piecewise calculation to force Level 75 to act as the 50% ratio mark
+    if (safeExp <= MIDPOINT_XP) {
+        ratio = (safeExp / MIDPOINT_XP) * 0.5;
+    } else {
+        ratio = 0.5 + ((safeExp - MIDPOINT_XP) / (MAX_LEVEL_XP - MIDPOINT_XP)) * 0.5;
+    }
+
+    // Cap the ratio at 1 so anything past level 99 stays full green
+    ratio = Math.min(1, ratio);
 
     const COLOR_RED = [255, 74, 74];
-    const COLOR_WHITE_TIE = [255, 255, 255]; 
+    const COLOR_WHITE = [255, 255, 255]; 
     const COLOR_GREEN = [74, 255, 74]; 
-
-    if (exp1 === 0 && exp2 === 0) return "rgb(255, 255, 255)"; 
-    if (exp1 === exp2) return "rgb(255, 255, 255)";
-
-    const ratio1 = Math.min(1, exp1 / MAX_LEVEL_XP);
-    const ratio2 = Math.min(1, exp2 / MAX_LEVEL_XP);
-    const differential = ratio1 - ratio2;
-    const blendFactor = (differential + 1) / 2;
 
     let r, g, b;
 
-    if (blendFactor <= 0.5) {
-        const localFactor = blendFactor * 2;
-        r = Math.round(COLOR_RED[0] + (COLOR_WHITE_TIE[0] - COLOR_RED[0]) * localFactor);
-        g = Math.round(COLOR_RED[1] + (COLOR_WHITE_TIE[1] - COLOR_RED[1]) * localFactor);
-        b = Math.round(COLOR_RED[2] + (COLOR_WHITE_TIE[2] - COLOR_RED[2]) * localFactor);
+    if (ratio <= 0.5) {
+        // Map 0 - Level 75 progress to a Red -> White gradient
+        const localFactor = ratio * 2; 
+        r = Math.round(COLOR_RED[0] + (COLOR_WHITE[0] - COLOR_RED[0]) * localFactor);
+        g = Math.round(COLOR_RED[1] + (COLOR_WHITE[1] - COLOR_RED[1]) * localFactor);
+        b = Math.round(COLOR_RED[2] + (COLOR_WHITE[2] - COLOR_RED[2]) * localFactor);
     } else {
-        const localFactor = (blendFactor - 0.5) * 2;
-        r = Math.round(COLOR_WHITE_TIE[0] + (COLOR_GREEN[0] - COLOR_WHITE_TIE[0]) * localFactor);
-        g = Math.round(COLOR_WHITE_TIE[1] + (COLOR_GREEN[1] - COLOR_WHITE_TIE[1]) * localFactor);
-        b = Math.round(COLOR_WHITE_TIE[2] + (COLOR_GREEN[2] - COLOR_WHITE_TIE[2]) * localFactor);
+        // Map Level 75 - Level 99 progress to a White -> Green gradient
+        const localFactor = (ratio - 0.5) * 2; 
+        r = Math.round(COLOR_WHITE[0] + (COLOR_GREEN[0] - COLOR_WHITE[0]) * localFactor);
+        g = Math.round(COLOR_WHITE[1] + (COLOR_GREEN[1] - COLOR_WHITE[1]) * localFactor);
+        b = Math.round(COLOR_WHITE[2] + (COLOR_GREEN[2] - COLOR_WHITE[2]) * localFactor);
     }
 
     return `rgb(${r}, ${g}, ${b})`;
@@ -222,7 +231,7 @@ function getXpClass(xpAmt) {
     return xpAmt > 0 ? "recent-xp-gain" : "recent-xp-none";
 }
 
-function renderTable(elementId, data, opponentData) {
+function renderTable(elementId, data) {
     const container = document.getElementById(elementId);
     
     let html = `
@@ -240,13 +249,10 @@ function renderTable(elementId, data, opponentData) {
             <tbody>
     `;
 
-    data.forEach((skill, index) => {
-        let colorStyle = "";
-        
-        if (opponentData && index < opponentData.length) {
-            const calculatedColor = getComparisonColor(skill.rawExp, opponentData[index].rawExp);
-            colorStyle = `style="color: ${calculatedColor} !important;"`;
-        }
+    data.forEach((skill) => {
+        // Calculate the color strictly based on the player's own XP
+        const calculatedColor = getProgressColor(skill.rawExp);
+        const colorStyle = `style="color: ${calculatedColor} !important;"`;
 
         html += `
             <tr>
@@ -340,8 +346,8 @@ async function fetchAndDisplayScores() {
     if (u1_live && u2_live) {
         const u1DisplayData = compareAndPrepareDisplayData(u1_live, u1Baselines);
         const u2DisplayData = compareAndPrepareDisplayData(u2_live, u2Baselines);
-        renderTable('user-hiscores-table', u1DisplayData, u2DisplayData); 
-        renderTable('friend-hiscores-table', u2DisplayData, u1DisplayData);
+        renderTable('user-hiscores-table', u1DisplayData); 
+        renderTable('friend-hiscores-table', u2DisplayData);
     }
 }
 
