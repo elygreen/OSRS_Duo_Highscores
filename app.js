@@ -286,7 +286,49 @@ async function fetchAndDisplayScores() {
     const groupRankElement = document.getElementById('group-rank');
     if (groupRankElement) {
         const rankText = await fetchGroupRank("Castle Duo");
-        groupRankElement.innerHTML = `Castle Duo Rank: <span style="color: gold;">${rankText}</span>`;
+        let rankDiffDisplay = "";
+
+        // Remove commas and parse to an integer. Returns NaN if "Unranked".
+        const currentRankNum = parseInt(rankText.replace(/,/g, ''));
+        
+        if (!isNaN(currentRankNum)) {
+            const dailyKey = getDailyPeriodKey();
+            const storageKey = 'osrs_group_baseline_Castle_Duo';
+            let groupBaseline = null;
+
+            try {
+                const stored = localStorage.getItem(storageKey);
+                if (stored) groupBaseline = JSON.parse(stored);
+            } catch (e) {
+                console.error("Could not load group baseline:", e);
+            }
+
+            // If no baseline exists for today, save the current rank as the baseline
+            if (!groupBaseline || groupBaseline.period !== dailyKey) {
+                groupBaseline = { period: dailyKey, rank: currentRankNum };
+                try {
+                    localStorage.setItem(storageKey, JSON.stringify(groupBaseline));
+                } catch (e) {
+                    console.error("Could not save group baseline:", e);
+                }
+            } else {
+                // Calculate the difference (Old Rank - Current Rank = Ranks Gained)
+                const rankDiff = groupBaseline.rank - currentRankNum;
+                
+                if (rankDiff > 0) {
+                    // Gained ranks (Cyan)
+                    rankDiffDisplay = ` <span style="color: #00eeff; font-size: 0.85em;">(+${rankDiff.toLocaleString()})</span>`;
+                } else if (rankDiff < 0) {
+                    // Lost ranks (Red)
+                    rankDiffDisplay = ` <span style="color: #ff4d4d; font-size: 0.85em;">(${rankDiff.toLocaleString()})</span>`;
+                } else {
+                    // No change (White)
+                    rankDiffDisplay = ` <span style="color: #ffffff; font-size: 0.85em;">(+0)</span>`;
+                }
+            }
+        }
+
+        groupRankElement.innerHTML = `Castle Duo Rank: <span style="color: gold;">${rankText}</span>${rankDiffDisplay}`;
     }
 
     const keys = {
