@@ -70,8 +70,8 @@ h2 {
 
 .table-wrapper {
     flex: 1;
-    min-width: 350px;
-    max-width: 550px;
+    min-width: 450px;
+    max-width: 750px;
     background-color: #4b3617;
     padding: 12px;
     border: 3px solid #332d1d;
