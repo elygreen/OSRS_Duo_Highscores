@@ -223,8 +223,8 @@ function formatGainDisplay(xpAmt, lvlAmt) {
     if (xpAmt === 0) return '-';
     
     const xpStr = `+${xpAmt.toLocaleString()}`;
-    // Only show the level gain slash if levels were actually gained, and style it white
-    return lvlAmt > 0 ? `${xpStr} <span style="color: #ffffff;">/</span> +${lvlAmt}` : xpStr;
+    // Only show the level gain slash if levels were actually gained, styling the slash white and the level yellow (gold)
+    return lvlAmt > 0 ? `${xpStr} <span style="color: #ffffff;">/</span> <span style="color: gold;">+${lvlAmt}</span>` : xpStr;
 }
 
 function getXpClass(xpAmt) {
