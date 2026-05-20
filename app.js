@@ -97,7 +97,6 @@ async function fetchHiscores(username) {
 function getProgressColor(exp) {
     const safeExp = exp > 0 ? exp : 0;
     const MIDPOINT_XP = 1210421;   // Experience required for Level 75
-    const MAX_LEVEL_XP = 13034431; // Experience required for Level 99
     let ratio;
     
     // Piecewise calculation to force Level 75 to act as the 50% ratio mark
@@ -178,6 +177,30 @@ function loadBaselines(username) {
     }
 }
 
+// --- Baseline Helpers ---
+
+/**
+ * Checks each period baseline against the current period keys.
+ * If a baseline is missing or stale, it is replaced with the live data snapshot.
+ * Returns true if any baseline was updated (so the caller knows to save).
+ */
+function refreshBaselinesIfNeeded(baselines, keys, liveSkills) {
+    let needsSave = false;
+    if (!baselines.daily || baselines.daily.period !== keys.daily) {
+        baselines.daily = { period: keys.daily, skills: liveSkills };
+        needsSave = true;
+    }
+    if (!baselines.weekly || baselines.weekly.period !== keys.weekly) {
+        baselines.weekly = { period: keys.weekly, skills: liveSkills };
+        needsSave = true;
+    }
+    if (!baselines.monthly || baselines.monthly.period !== keys.monthly) {
+        baselines.monthly = { period: keys.monthly, skills: liveSkills };
+        needsSave = true;
+    }
+    return needsSave;
+}
+
 // --- Display Rendering ---
 
 function compareAndPrepareDisplayData(currentData, baselines) {
@@ -236,6 +259,14 @@ function renderTable(elementId, data) {
     
     let html = `
         <table>
+            <colgroup>
+                <col style="width: 25%">
+                <col style="width: 9%">
+                <col style="width: 22%">
+                <col style="width: 14%">
+                <col style="width: 15%">
+                <col style="width: 15%">
+            </colgroup>
             <thead>
                 <tr>
                     <th style="text-align:left;">Skill</th>
@@ -251,7 +282,6 @@ function renderTable(elementId, data) {
 
     data.forEach((skill) => {
         const calculatedColor = getProgressColor(skill.rawExp);
-        const colorStyle = `style="color: ${calculatedColor} !important;"`;
 
         html += `
             <tr>
@@ -259,8 +289,8 @@ function renderTable(elementId, data) {
                     <img src="${getIconUrl(skill.wikiName)}" class="skill-icon" alt="${skill.name} icon">
                     <span>${skill.name}</span>
                 </td>
-                <td ${colorStyle}>${skill.level}</td>
-                <td ${colorStyle}>${skill.exp === '-1' || skill.exp === '0' ? 'N/A' : skill.exp}</td>
+                <td class="skill-progress-cell" style="--skill-color: ${calculatedColor}">${skill.level}</td>
+                <td class="skill-progress-cell" style="--skill-color: ${calculatedColor}">${skill.exp === '-1' || skill.exp === '0' ? 'N/A' : skill.exp}</td>
                 <td class="${getXpClass(skill.dailyExp)}">${formatGainDisplay(skill.dailyExp, skill.dailyLvl)}</td>
                 <td class="${getXpClass(skill.weeklyExp)}">${formatGainDisplay(skill.weeklyExp, skill.weeklyLvl)}</td>
                 <td class="${getXpClass(skill.monthlyExp)}">${formatGainDisplay(skill.monthlyExp, skill.monthlyLvl)}</td>
@@ -348,39 +378,21 @@ async function fetchAndDisplayScores() {
     // Handle User 1
     if (userPromise.status === 'fulfilled') {
         u1_live = userPromise.value;
-        let needsSave = false;
-
-        if (!u1Baselines.daily || u1Baselines.daily.period !== keys.daily) {
-            u1Baselines.daily = { period: keys.daily, skills: u1_live }; needsSave = true;
+        if (refreshBaselinesIfNeeded(u1Baselines, keys, u1_live)) {
+            saveBaselines(USER_1_RSN, u1Baselines);
         }
-        if (!u1Baselines.weekly || u1Baselines.weekly.period !== keys.weekly) {
-            u1Baselines.weekly = { period: keys.weekly, skills: u1_live }; needsSave = true;
-        }
-        if (!u1Baselines.monthly || u1Baselines.monthly.period !== keys.monthly) {
-            u1Baselines.monthly = { period: keys.monthly, skills: u1_live }; needsSave = true;
-        }
-        if (needsSave) saveBaselines(USER_1_RSN, u1Baselines);
     } else {
         const message = `<p class="error-message">Highscores not found for **${USER_1_RSN}**. Check spelling.</p>`;
         document.getElementById('user-hiscores-table').innerHTML = message;
         console.error(`Error fetching user scores for ${USER_1_RSN}:`, userPromise.reason);
     }
 
-    // Handle User 2 
+    // Handle User 2
     if (friendPromise.status === 'fulfilled') {
         u2_live = friendPromise.value;
-        let needsSave = false;
-
-        if (!u2Baselines.daily || u2Baselines.daily.period !== keys.daily) {
-            u2Baselines.daily = { period: keys.daily, skills: u2_live }; needsSave = true;
+        if (refreshBaselinesIfNeeded(u2Baselines, keys, u2_live)) {
+            saveBaselines(USER_2_RSN, u2Baselines);
         }
-        if (!u2Baselines.weekly || u2Baselines.weekly.period !== keys.weekly) {
-            u2Baselines.weekly = { period: keys.weekly, skills: u2_live }; needsSave = true;
-        }
-        if (!u2Baselines.monthly || u2Baselines.monthly.period !== keys.monthly) {
-            u2Baselines.monthly = { period: keys.monthly, skills: u2_live }; needsSave = true;
-        }
-        if (needsSave) saveBaselines(USER_2_RSN, u2Baselines);
     } else {
         const message = `<p class="error-message">Highscores not found for **${USER_2_RSN}**. Check spelling.</p>`;
         document.getElementById('friend-hiscores-table').innerHTML = message;
@@ -396,6 +408,8 @@ async function fetchAndDisplayScores() {
 }
 
 async function fetchGroupRank(groupName) {
+    // NOTE: This scrapes the hiscores HTML page rather than a proper API.
+    // If Jagex changes their page structure, this will silently return "Unranked".
     const targetUrl = `https://secure.runescape.com/m=hiscore_oldschool_ironman/group-ironman/?groupName=${encodeURIComponent(groupName)}&cb=${Date.now()}`;
     const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`;
 
@@ -424,3 +438,254 @@ async function fetchGroupRank(groupName) {
 }
 
 fetchAndDisplayScores();
+
+// ── Task List (Firestore) ─────────────────────────────────────
+
+import { initializeApp }                          from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, addDoc,
+         deleteDoc, updateDoc, doc,
+         onSnapshot, serverTimestamp,
+         query, orderBy }                         from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+    apiKey:            "AIzaSyDAT1UIM1mFMH1vh_Wal4SqXOY6NSr0_6c",
+    authDomain:        "castle-mtg-stat-tracker.firebaseapp.com",
+    projectId:         "castle-mtg-stat-tracker",
+    storageBucket:     "castle-mtg-stat-tracker.firebasestorage.app",
+    messagingSenderId: "503581755862",
+    appId:             "1:503581755862:web:10222b71ae270b6ca03c77"
+};
+
+const _fbApp   = initializeApp(firebaseConfig, "osrs-tasks");
+const _db      = getFirestore(_fbApp);
+const _tasksCol = collection(_db, "osrs_duo_tasks");
+
+// ── Assignee toggle state ────────────────────────────────────
+
+const _assigneeState = { ely: false, lucian: false };
+let _selectedSkill = null; // { name, wikiName } or null
+
+function initAssigneeToggles() {
+    ['ely', 'lucian'].forEach(player => {
+        const btn = document.getElementById(`assignee-${player}`);
+        btn.addEventListener('click', () => {
+            _assigneeState[player] = !_assigneeState[player];
+            btn.setAttribute('aria-pressed', _assigneeState[player]);
+        });
+    });
+}
+
+// ── Skill icon picker ────────────────────────────────────────
+
+function initSkillPicker() {
+    const btn     = document.getElementById('task-skill-btn');
+    const popup   = document.getElementById('task-skill-popup');
+    const grid    = document.getElementById('task-skill-grid');
+
+    const PICKER_ICONS = [
+        { name: 'Total',  wikiName: 'Overall',  url: getIconUrl('Overall') },
+        { name: 'Quests', wikiName: 'Quests',   url: 'images/icon_quest.png' },
+    ];
+
+    // Build grid
+    PICKER_ICONS.forEach(skill => {
+        const optBtn = document.createElement('button');
+        optBtn.className = 'task-skill-option';
+        optBtn.title = skill.name;
+        optBtn.type = 'button';
+
+        const img = document.createElement('img');
+        img.src = skill.url;
+        img.alt = skill.name;
+        optBtn.appendChild(img);
+
+        optBtn.addEventListener('click', () => {
+            if (_selectedSkill && _selectedSkill.name === skill.name) {
+                _selectedSkill = null;
+            } else {
+                _selectedSkill = skill;
+            }
+            updateSkillBtn();
+            grid.querySelectorAll('.task-skill-option').forEach(b => b.classList.remove('selected'));
+            if (_selectedSkill) optBtn.classList.add('selected');
+            popup.style.display = 'none';
+        });
+
+        grid.appendChild(optBtn);
+    });
+
+    // Clear button
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'task-skill-clear';
+    clearBtn.textContent = 'Clear selection';
+    clearBtn.type = 'button';
+    clearBtn.addEventListener('click', () => {
+        _selectedSkill = null;
+        updateSkillBtn();
+        grid.querySelectorAll('.task-skill-option').forEach(b => b.classList.remove('selected'));
+        popup.style.display = 'none';
+    });
+    grid.appendChild(clearBtn);
+
+    // Toggle popup
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        popup.style.display = popup.style.display === 'none' ? 'block' : 'none';
+    });
+
+    // Close popup when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!btn.contains(e.target) && !popup.contains(e.target)) {
+            popup.style.display = 'none';
+        }
+    });
+}
+
+function updateSkillBtn() {
+    const btn = document.getElementById('task-skill-btn');
+    btn.innerHTML = '';
+    if (_selectedSkill) {
+        btn.classList.add('has-skill');
+        const img = document.createElement('img');
+        img.src = _selectedSkill.url || getIconUrl(_selectedSkill.wikiName);
+        img.alt = _selectedSkill.name;
+        btn.appendChild(img);
+    } else {
+        btn.classList.remove('has-skill');
+        const span = document.createElement('span');
+        span.textContent = '?';
+        btn.appendChild(span);
+    }
+}
+
+// ── Firestore actions ────────────────────────────────────────
+
+async function addTask() {
+    const input = document.getElementById('task-input');
+    const text = input.value.trim();
+    if (!text) return;
+
+    const assignees = Object.keys(_assigneeState).filter(p => _assigneeState[p]);
+    const skill = _selectedSkill ? { name: _selectedSkill.name, wikiName: _selectedSkill.wikiName, url: _selectedSkill.url } : null;
+
+    input.value = '';
+    input.focus();
+
+    // Reset face toggles and skill after adding
+    ['ely', 'lucian'].forEach(p => {
+        _assigneeState[p] = false;
+        document.getElementById(`assignee-${p}`).setAttribute('aria-pressed', 'false');
+    });
+    _selectedSkill = null;
+    updateSkillBtn();
+
+    try {
+        await addDoc(_tasksCol, { text, completed: false, assignees, skill, createdAt: serverTimestamp() });
+    } catch (e) {
+        console.error("Could not add task:", e);
+    }
+}
+
+async function toggleTask(id, currentState) {
+    try {
+        await updateDoc(doc(_db, "osrs_duo_tasks", id), { completed: !currentState });
+    } catch (e) {
+        console.error("Could not toggle task:", e);
+    }
+}
+
+async function deleteTask(id) {
+    try {
+        await deleteDoc(doc(_db, "osrs_duo_tasks", id));
+    } catch (e) {
+        console.error("Could not delete task:", e);
+    }
+}
+
+// ── Render ───────────────────────────────────────────────────
+
+const PLAYER_IMAGES = {
+    ely:    'images/head_ely.png',
+    lucian: 'images/head_lucian.png'
+};
+
+function renderTasks(tasks) {
+    const list  = document.getElementById('task-list');
+    const empty = document.getElementById('task-empty');
+
+    list.innerHTML = '';
+    empty.style.display = tasks.length === 0 ? 'block' : 'none';
+
+    tasks.forEach((task) => {
+        const li = document.createElement('li');
+        li.className = 'task-item' + (task.completed ? ' completed' : '');
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'task-checkbox';
+        checkbox.checked = task.completed;
+        checkbox.addEventListener('change', () => toggleTask(task.id, task.completed));
+
+        const label = document.createElement('span');
+        label.className = 'task-label';
+        label.textContent = task.text;
+        label.addEventListener('click', () => toggleTask(task.id, task.completed));
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'task-delete-btn';
+        deleteBtn.textContent = '✕';
+        deleteBtn.setAttribute('aria-label', 'Delete task');
+        deleteBtn.addEventListener('click', () => deleteTask(task.id));
+
+        li.appendChild(checkbox);
+
+        // Skill icon (if set)
+        if (task.skill) {
+            const skillImg = document.createElement('img');
+            skillImg.src = task.skill.url || getIconUrl(task.skill.wikiName);
+            skillImg.alt = task.skill.name;
+            skillImg.className = 'task-skill-icon';
+            skillImg.title = task.skill.name;
+            li.appendChild(skillImg);
+        }
+
+        li.appendChild(label);
+
+        // Assignee avatars
+        const assignees = task.assignees || [];
+        if (assignees.length > 0) {
+            const avatarWrapper = document.createElement('div');
+            avatarWrapper.className = 'task-assignees';
+            assignees.forEach(player => {
+                if (PLAYER_IMAGES[player]) {
+                    const img = document.createElement('img');
+                    img.src = PLAYER_IMAGES[player];
+                    img.alt = player;
+                    img.className = 'task-assignee-avatar';
+                    avatarWrapper.appendChild(img);
+                }
+            });
+            li.appendChild(avatarWrapper);
+        }
+
+        li.appendChild(deleteBtn);
+        list.appendChild(li);
+    });
+}
+
+// ── Real-time listener ───────────────────────────────────────
+
+const _tasksQuery = query(_tasksCol, orderBy("createdAt", "asc"));
+onSnapshot(_tasksQuery, (snapshot) => {
+    const tasks = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderTasks(tasks);
+}, (e) => console.error("Task listener error:", e));
+
+// ── Wire up events ───────────────────────────────────────────
+
+initAssigneeToggles();
+initSkillPicker();
+document.getElementById('task-add-btn').addEventListener('click', addTask);
+document.getElementById('task-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') addTask();
+});

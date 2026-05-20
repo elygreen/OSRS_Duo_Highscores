@@ -32,8 +32,36 @@
                 <h2 id="friend-title">Duo Lucian</h2>
                 <div id="friend-hiscores-table">Loading...</div>
             </div>
+
+            <div class="table-wrapper task-wrapper">
+                <h2>To-Do List</h2>
+                <div class="task-input-row">
+                    <input type="text" id="task-input" class="task-input" placeholder="Add a task..." maxlength="120">
+                    <button id="task-add-btn" class="task-add-btn" aria-label="Add task">+</button>
+                </div>
+                <div class="task-assignee-row">
+                    <span class="task-assignee-label">For:</span>
+                    <button class="task-face-btn" id="assignee-ely" data-player="ely" aria-label="Assign to Ely" aria-pressed="false">
+                        <img src="images/head_ely.png" alt="Ely">
+                    </button>
+                    <button class="task-face-btn" id="assignee-lucian" data-player="lucian" aria-label="Assign to Lucian" aria-pressed="false">
+                        <img src="images/head_lucian.png" alt="Lucian">
+                    </button>
+                    <span class="task-assignee-label" style="margin-left:8px;">Icon:</span>
+                    <div class="task-skill-picker-wrap">
+                        <button id="task-skill-btn" class="task-skill-btn" aria-label="Pick skill icon" title="Pick a skill">
+                            <span id="task-skill-btn-inner">?</span>
+                        </button>
+                        <div id="task-skill-popup" class="task-skill-popup" style="display:none;">
+                            <div class="task-skill-popup-grid" id="task-skill-grid"></div>
+                        </div>
+                    </div>
+                </div>
+                <ul id="task-list" class="task-list"></ul>
+                <div id="task-empty" class="task-empty">No tasks yet. Add one above!</div>
+            </div>
         </div>
-        <script src="app.js"></script>
+        <script src="app.js" type="module"></script>
     </body>
 
 </html>
