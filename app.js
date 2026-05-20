@@ -250,9 +250,10 @@ function formatNumber(n) {
 
 function formatGainDisplay(xpAmt, lvlAmt) {
     if (xpAmt === 0) return '-';
-    
     const xpStr = `+${formatNumber(xpAmt)}`;
-    return lvlAmt > 0 ? `${xpStr} <span style="color: #ffffff;">/</span> <span style="color: gold;">+${lvlAmt}</span>` : xpStr;
+    return lvlAmt > 0
+        ? `${xpStr} <span style="color: gold;">(+${lvlAmt})</span>`
+        : xpStr;
 }
 
 function getXpClass(xpAmt) {
@@ -265,12 +266,12 @@ function renderTable(elementId, data) {
     let html = `
         <table>
             <colgroup>
-                <col style="width: 25%">
+                <col style="width: 24%">
                 <col style="width: 9%">
-                <col style="width: 22%">
-                <col style="width: 14%">
-                <col style="width: 15%">
-                <col style="width: 15%">
+                <col style="width: 19%">
+                <col style="width: 16%">
+                <col style="width: 16%">
+                <col style="width: 16%">
             </colgroup>
             <thead>
                 <tr>
