@@ -146,10 +146,10 @@ function parseCSVToSkills(csvText){
         const skillObject = { 
             name: skillInfo.name,
             wikiName: skillInfo.wikiName,
-            rank: rank.toLocaleString(),
+            rank: formatNumber(rank),
             level: level.toLocaleString(),
             rawLevel: level,
-            exp: exp.toLocaleString(),
+            exp: formatNumber(exp),
             rawExp: exp
         };
         skillsData.push(skillObject);
@@ -242,11 +242,16 @@ function compareAndPrepareDisplayData(currentData, baselines) {
     return displayData;
 }
 
+function formatNumber(n) {
+    if (n >= 1_000_000) return (n / 1_000_000).toFixed(2).replace(/\.?0+$/, '') + 'm';
+    if (n >= 1_000)     return (n / 1_000).toFixed(1).replace(/\.0$/, '') + 'k';
+    return n.toString();
+}
+
 function formatGainDisplay(xpAmt, lvlAmt) {
     if (xpAmt === 0) return '-';
     
-    const xpStr = `+${xpAmt.toLocaleString()}`;
-    // Only show the level gain slash if levels were actually gained, styling the slash white and the level yellow (gold)
+    const xpStr = `+${formatNumber(xpAmt)}`;
     return lvlAmt > 0 ? `${xpStr} <span style="color: #ffffff;">/</span> <span style="color: gold;">+${lvlAmt}</span>` : xpStr;
 }
 
@@ -290,7 +295,7 @@ function renderTable(elementId, data) {
                     <span>${skill.name}</span>
                 </td>
                 <td class="skill-progress-cell" style="--skill-color: ${calculatedColor}">${skill.level}</td>
-                <td class="skill-progress-cell" style="--skill-color: ${calculatedColor}">${skill.exp === '-1' || skill.exp === '0' ? 'N/A' : skill.exp}</td>
+                <td class="skill-progress-cell" style="--skill-color: ${calculatedColor}">${skill.rawExp <= 0 ? 'N/A' : skill.exp}</td>
                 <td class="${getXpClass(skill.dailyExp)}">${formatGainDisplay(skill.dailyExp, skill.dailyLvl)}</td>
                 <td class="${getXpClass(skill.weeklyExp)}">${formatGainDisplay(skill.weeklyExp, skill.weeklyLvl)}</td>
                 <td class="${getXpClass(skill.monthlyExp)}">${formatGainDisplay(skill.monthlyExp, skill.monthlyLvl)}</td>
