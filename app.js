@@ -1,33 +1,13 @@
 const USER_1_RSN = "Duo Ely";
 const USER_2_RSN = "Duo Lucian";
 const RESET_HOUR = 5;
+const WIKI_NAME_OVERRIDES = { Runecrafting: "Runecraft" };
 const SKILL_DATA = [
-    { name: "Overall", wikiName: "Overall" },
-    { name: "Attack", wikiName: "Attack" },
-    { name: "Defence", wikiName: "Defence" },
-    { name: "Strength", wikiName: "Strength" },
-    { name: "Hitpoints", wikiName: "Hitpoints" },
-    { name: "Ranged", wikiName: "Ranged" },
-    { name: "Prayer", wikiName: "Prayer" },
-    { name: "Magic", wikiName: "Magic" },
-    { name: "Cooking", wikiName: "Cooking" },
-    { name: "Woodcutting", wikiName: "Woodcutting" },
-    { name: "Fletching", wikiName: "Fletching" },
-    { name: "Fishing", wikiName: "Fishing" },
-    { name: "Firemaking", wikiName: "Firemaking" },
-    { name: "Crafting", wikiName: "Crafting" },
-    { name: "Smithing", wikiName: "Smithing" },
-    { name: "Mining", wikiName: "Mining" },
-    { name: "Herblore", wikiName: "Herblore" },
-    { name: "Agility", wikiName: "Agility" },
-    { name: "Thieving", wikiName: "Thieving" },
-    { name: "Slayer", wikiName: "Slayer" },
-    { name: "Farming", wikiName: "Farming" },
-    { name: "Runecrafting", wikiName: "Runecraft" },
-    { name: "Hunter", wikiName: "Hunter" },
-    { name: "Construction", wikiName: "Construction" },
-    { name: "Sailing", wikiName: "Sailing" }
-];
+    "Overall","Attack","Defence","Strength","Hitpoints","Ranged","Prayer","Magic",
+    "Cooking","Woodcutting","Fletching","Fishing","Firemaking","Crafting","Smithing",
+    "Mining","Herblore","Agility","Thieving","Slayer","Farming","Runecrafting",
+    "Hunter","Construction","Sailing"
+].map(name => ({ name, wikiName: WIKI_NAME_OVERRIDES[name] ?? name }));
 
 const ICON_SIZE = "21px";
 const API_BASE_URL = "https://services.runescape.com/m=hiscore_oldschool/index_lite.ws?player=";
@@ -37,46 +17,36 @@ const MAX_LEVEL_XP = 13034431;
 
 // --- Period Key Calculations ---
 
+function getAdjustedDate() {
+    const d = new Date();
+    if (d.getHours() < RESET_HOUR) d.setDate(d.getDate() - 1);
+    return d;
+}
+
 function getDailyPeriodKey() {
-    const now = new Date();
-    const calcDate = new Date(now.getTime());
-    if (calcDate.getHours() < RESET_HOUR) {
-        calcDate.setDate(calcDate.getDate() - 1);
-    }
-    return `${calcDate.getFullYear()}-${calcDate.getMonth()}-${calcDate.getDate()}`;
+    const d = getAdjustedDate();
+    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
 function getWeeklyPeriodKey() {
-    const now = new Date();
-    const calcDate = new Date(now.getTime());
-    if (calcDate.getHours() < RESET_HOUR) {
-        calcDate.setDate(calcDate.getDate() - 1);
-    }
-    // Set to Monday of the current week
-    const day = calcDate.getDay();
-    const diff = calcDate.getDate() - day + (day === 0 ? -6 : 1);
-    const monday = new Date(calcDate.setDate(diff));
-    return `W-${monday.getFullYear()}-${monday.getMonth()}-${monday.getDate()}`;
+    const d = getAdjustedDate();
+    const day = d.getDay();
+    d.setDate(d.getDate() - day + (day === 0 ? -6 : 1)); // snap to Monday
+    return `W-${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
 function getMonthlyPeriodKey() {
-    const now = new Date();
-    const calcDate = new Date(now.getTime());
-    if (calcDate.getDate() === 1 && calcDate.getHours() < RESET_HOUR) {
-        calcDate.setDate(0);
-    }
-    return `${calcDate.getFullYear()}-${calcDate.getMonth()}`;
+    const d = new Date();
+    if (d.getDate() === 1 && d.getHours() < RESET_HOUR) d.setDate(0);
+    return `${d.getFullYear()}-${d.getMonth()}`;
 }
 
 // --- Highscores Logic ---
 
 function getIconUrl(wikiName) {
-    if (wikiName == "Overall"){
-        return SKILL_TOTAL_ICON;
-    }
+    if (wikiName === "Overall") return SKILL_TOTAL_ICON;
     const filename = `${wikiName}_icon.png`;
-    const encodedFilename = filename.replace(/ /g, "_");
-    return `${ICON_BASE_URL}${encodedFilename}/${ICON_SIZE}-${encodedFilename}`;
+    return `${ICON_BASE_URL}${filename}/${ICON_SIZE}-${filename}`;
 }
 
 async function fetchHiscores(username) {
@@ -157,22 +127,24 @@ function parseCSVToSkills(csvText){
     return skillsData;
 }
 
-// --- Local Storage Handlers ---
+// --- Firestore Baseline Handlers ---
 
-function saveBaselines(username, baselinesObj) {
+async function saveBaselines(username, baselinesObj) {
     try {
-        localStorage.setItem(`osrs_tracking_baselines_${username.replace(/ /g, '_')}`, JSON.stringify(baselinesObj));
+        const key = username.replace(/ /g, '_');
+        await setDoc(doc(_db, "osrs_baselines", key), baselinesObj);
     } catch (e) {
-        console.error("Could not save to localStorage:", e);
+        console.error("Could not save baselines to Firestore:", e);
     }
 }
 
-function loadBaselines(username) {
+async function loadBaselines(username) {
     try {
-        const data = localStorage.getItem(`osrs_tracking_baselines_${username.replace(/ /g, '_')}`);
-        return data ? JSON.parse(data) : { daily: null, weekly: null, monthly: null };
+        const key = username.replace(/ /g, '_');
+        const snap = await getDoc(doc(_db, "osrs_baselines", key));
+        return snap.exists() ? snap.data() : { daily: null, weekly: null, monthly: null };
     } catch (e) {
-        console.error("Could not load from localStorage:", e);
+        console.error("Could not load baselines from Firestore:", e);
         return { daily: null, weekly: null, monthly: null };
     }
 }
@@ -204,42 +176,16 @@ function refreshBaselinesIfNeeded(baselines, keys, liveSkills) {
 // --- Display Rendering ---
 
 function compareAndPrepareDisplayData(currentData, baselines) {
-    const displayData = [];
-    for (let i = 0; i < currentData.length; i++) {
-        const currentSkill = currentData[i];
-        let dailyExp = 0, weeklyExp = 0, monthlyExp = 0;
-        let dailyLvl = 0, weeklyLvl = 0, monthlyLvl = 0;
-
-        // Treat unranked (-1) levels as 1 for accurate calculation
-        const currentLvlCalc = currentSkill.rawLevel < 1 ? 1 : currentSkill.rawLevel;
-
-        if (baselines.daily && baselines.daily.skills[i]) {
-            const baseLvlCalc = baselines.daily.skills[i].rawLevel < 1 ? 1 : baselines.daily.skills[i].rawLevel;
-            dailyExp = Math.max(0, currentSkill.rawExp - baselines.daily.skills[i].rawExp);
-            dailyLvl = Math.max(0, currentLvlCalc - baseLvlCalc);
+    return currentData.map((currentSkill, i) => {
+        const currentLvlCalc = Math.max(1, currentSkill.rawLevel);
+        const gains = {};
+        for (const period of ['daily', 'weekly', 'monthly']) {
+            const base = baselines[period]?.skills[i];
+            gains[`${period}Exp`] = base ? Math.max(0, currentSkill.rawExp - base.rawExp) : 0;
+            gains[`${period}Lvl`] = base ? Math.max(0, currentLvlCalc - Math.max(1, base.rawLevel)) : 0;
         }
-        if (baselines.weekly && baselines.weekly.skills[i]) {
-            const baseLvlCalc = baselines.weekly.skills[i].rawLevel < 1 ? 1 : baselines.weekly.skills[i].rawLevel;
-            weeklyExp = Math.max(0, currentSkill.rawExp - baselines.weekly.skills[i].rawExp);
-            weeklyLvl = Math.max(0, currentLvlCalc - baseLvlCalc);
-        }
-        if (baselines.monthly && baselines.monthly.skills[i]) {
-            const baseLvlCalc = baselines.monthly.skills[i].rawLevel < 1 ? 1 : baselines.monthly.skills[i].rawLevel;
-            monthlyExp = Math.max(0, currentSkill.rawExp - baselines.monthly.skills[i].rawExp);
-            monthlyLvl = Math.max(0, currentLvlCalc - baseLvlCalc);
-        }
-
-        displayData.push({
-            ...currentSkill,
-            dailyExp: dailyExp,
-            dailyLvl: dailyLvl,
-            weeklyExp: weeklyExp,
-            weeklyLvl: weeklyLvl,
-            monthlyExp: monthlyExp,
-            monthlyLvl: monthlyLvl
-        });
-    }
-    return displayData;
+        return { ...currentSkill, ...gains };
+    });
 }
 
 function formatNumber(n) {
@@ -312,50 +258,58 @@ function renderTable(elementId, data) {
 }
 
 async function fetchAndDisplayScores() {
-    const userRsnClean = USER_1_RSN.replace(/ /g, '+');
-    const friendRsnClean = USER_2_RSN.replace(/ /g, '+');
-    
     document.getElementById('user-title').textContent = `${USER_1_RSN}'s Highscores`;
     document.getElementById('friend-title').textContent = `${USER_2_RSN}'s Highscores`;
 
+    const keys = {
+        daily: getDailyPeriodKey(),
+        weekly: getWeeklyPeriodKey(),
+        monthly: getMonthlyPeriodKey()
+    };
+
+    // Fetch hiscores, baselines, and group rank all in parallel
+    const players = [
+        { rsn: USER_1_RSN, tableId: 'user-hiscores-table' },
+        { rsn: USER_2_RSN, tableId: 'friend-hiscores-table' },
+    ];
+
+    const [rankText, ...playerData] = await Promise.all([
+        fetchGroupRank("Castle Duo"),
+        ...players.map(async p => ({
+            baselines: await loadBaselines(p.rsn),
+            live: await fetchHiscores(p.rsn.replace(/ /g, '+')).catch(err => { console.error(`Error fetching scores for ${p.rsn}:`, err); return null; })
+        }))
+    ]);
+
+    // Group rank display
     const groupRankElement = document.getElementById('group-rank');
     if (groupRankElement) {
-        const rankText = await fetchGroupRank("Castle Duo");
         let rankDiffDisplay = "";
         const currentRankNum = parseInt(rankText.replace(/,/g, ''));
-        
+
         if (!isNaN(currentRankNum)) {
             const dailyKey = getDailyPeriodKey();
-            const storageKey = 'osrs_group_baseline_Castle_Duo';
             let groupBaseline = null;
-
             try {
-                const stored = localStorage.getItem(storageKey);
-                if (stored) groupBaseline = JSON.parse(stored);
+                const snap = await getDoc(doc(_db, "osrs_baselines", "group_Castle_Duo"));
+                if (snap.exists()) groupBaseline = snap.data();
             } catch (e) {
                 console.error("Could not load group baseline:", e);
             }
 
-            // If no baseline exists for today, save the current rank as the baseline
             if (!groupBaseline || groupBaseline.period !== dailyKey) {
-                groupBaseline = { period: dailyKey, rank: currentRankNum };
                 try {
-                    localStorage.setItem(storageKey, JSON.stringify(groupBaseline));
+                    await setDoc(doc(_db, "osrs_baselines", "group_Castle_Duo"), { period: dailyKey, rank: currentRankNum });
                 } catch (e) {
                     console.error("Could not save group baseline:", e);
                 }
             } else {
-                // Calculate the difference (Old Rank - Current Rank = Ranks Gained)
                 const rankDiff = groupBaseline.rank - currentRankNum;
-                
                 if (rankDiff > 0) {
-                    // Gained ranks (Cyan)
                     rankDiffDisplay = ` <span style="color: #00eeff; font-size: 0.85em;">(+${rankDiff.toLocaleString()})</span>`;
                 } else if (rankDiff < 0) {
-                    // Lost ranks (Red)
                     rankDiffDisplay = ` <span style="color: #ff4d4d; font-size: 0.85em;">(${rankDiff.toLocaleString()})</span>`;
                 } else {
-                    // No change (White)
                     rankDiffDisplay = ` <span style="color: #ffffff; font-size: 0.85em;">(+0)</span>`;
                 }
             }
@@ -364,52 +318,21 @@ async function fetchAndDisplayScores() {
         groupRankElement.innerHTML = `Castle Duo Rank: <span style="color: gold;">${rankText}</span>${rankDiffDisplay}`;
     }
 
-    const keys = {
-        daily: getDailyPeriodKey(),
-        weekly: getWeeklyPeriodKey(),
-        monthly: getMonthlyPeriodKey()
-    };
-
-    let u1Baselines = loadBaselines(USER_1_RSN);
-    let u2Baselines = loadBaselines(USER_2_RSN);
-    
-    let u1_live = null;
-    let u2_live = null;
-
-    const [userPromise, friendPromise] = await Promise.allSettled([
-        fetchHiscores(userRsnClean),
-        fetchHiscores(friendRsnClean)
-    ]);
-
-    // Handle User 1
-    if (userPromise.status === 'fulfilled') {
-        u1_live = userPromise.value;
-        if (refreshBaselinesIfNeeded(u1Baselines, keys, u1_live)) {
-            saveBaselines(USER_1_RSN, u1Baselines);
+    // Handle each player's hiscores
+    const allLive = playerData.map((pd, idx) => {
+        if (!pd.live) {
+            document.getElementById(players[idx].tableId).innerHTML =
+                `<p class="error-message">Highscores not found for **${players[idx].rsn}**. Check spelling.</p>`;
+            return null;
         }
-    } else {
-        const message = `<p class="error-message">Highscores not found for **${USER_1_RSN}**. Check spelling.</p>`;
-        document.getElementById('user-hiscores-table').innerHTML = message;
-        console.error(`Error fetching user scores for ${USER_1_RSN}:`, userPromise.reason);
-    }
-
-    // Handle User 2
-    if (friendPromise.status === 'fulfilled') {
-        u2_live = friendPromise.value;
-        if (refreshBaselinesIfNeeded(u2Baselines, keys, u2_live)) {
-            saveBaselines(USER_2_RSN, u2Baselines);
+        if (refreshBaselinesIfNeeded(pd.baselines, keys, pd.live)) {
+            saveBaselines(players[idx].rsn, pd.baselines);
         }
-    } else {
-        const message = `<p class="error-message">Highscores not found for **${USER_2_RSN}**. Check spelling.</p>`;
-        document.getElementById('friend-hiscores-table').innerHTML = message;
-        console.error(`Error fetching friend scores for ${USER_2_RSN}:`, friendPromise.reason);
-    }
-    
-    if (u1_live && u2_live) {
-        const u1DisplayData = compareAndPrepareDisplayData(u1_live, u1Baselines);
-        const u2DisplayData = compareAndPrepareDisplayData(u2_live, u2Baselines);
-        renderTable('user-hiscores-table', u1DisplayData); 
-        renderTable('friend-hiscores-table', u2DisplayData);
+        return pd.live;
+    });
+
+    if (allLive.every(Boolean)) {
+        players.forEach((p, idx) => renderTable(p.tableId, compareAndPrepareDisplayData(allLive[idx], playerData[idx].baselines)));
     }
 }
 
@@ -449,7 +372,7 @@ fetchAndDisplayScores();
 
 import { initializeApp }                          from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, collection, addDoc,
-         deleteDoc, updateDoc, doc,
+         deleteDoc, updateDoc, doc, getDoc, setDoc,
          onSnapshot, serverTimestamp,
          query, orderBy }                         from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 

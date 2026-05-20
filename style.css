@@ -265,14 +265,17 @@ tr:first-child {
     box-shadow: 0 0 6px rgba(255, 152, 31, 0.5);
 }
 
+.task-face-btn:hover,
+.task-face-btn[aria-pressed="true"]:hover {
+    transform: scale(1.1);
+}
+
 .task-face-btn:hover {
     opacity: 0.75;
-    transform: scale(1.1);
 }
 
 .task-face-btn[aria-pressed="true"]:hover {
     opacity: 1;
-    transform: scale(1.1);
 }
 
 /* ── Skill icon picker ───────────────────────────────── */
