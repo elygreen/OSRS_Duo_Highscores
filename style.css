@@ -147,14 +147,14 @@ tr:first-child {
     vertical-align: middle;
     display: flex;
     align-items: center;
-    gap: 4px;
-    height: 31px;
+    gap: 1px;
+    height: 32px;
     box-sizing: border-box;
 }
 
 .skill-icon {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     vertical-align: middle;
     align-items: left;
     margin-right: 5px;
@@ -207,6 +207,39 @@ tr:first-child {
 
 .head-ely {
     transform: scaleX(-1);
+}
+
+/* ── Rank Chart ──────────────────────────────────────────── */
+
+.rank-chart-wrapper {
+    max-width: 900px;
+    margin: 6px auto 4px;
+    background-color: #4b3617;
+    border: 3px solid #332d1d;
+    border-radius: 6px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.7);
+    padding: 8px 16px 12px;
+}
+
+.rank-chart-title {
+    margin-bottom: 6px;
+}
+
+#rank-chart {
+    width: 100%;
+    height: 160px;
+    display: block;
+}
+
+.rank-chart-empty {
+    font-family: "Runescape";
+    font-weight: normal;
+    color: #7a6642;
+    font-size: 0.9em;
+    text-align: center;
+    padding: 20px 0;
+    font-style: italic;
+    display: none;
 }
 
 /* ── Task Column ─────────────────────────────────────────── */
@@ -484,16 +517,16 @@ tr:first-child {
 }
 
 .task-assignee-avatar {
-    width: 22px;
-    height: 22px;
+    width: 36px;
+    height: 36px;
     object-fit: contain;
     filter: drop-shadow(0 0 1px #000);
     opacity: 0.9;
 }
 
 .task-skill-icon {
-    width: 20px;
-    height: 20px;
+    width: 30px;
+    height: 30px;
     object-fit: contain;
     filter: drop-shadow(0 0 1px #000);
     flex-shrink: 0;
@@ -531,7 +564,7 @@ tr:first-child {
 .task-label {
     flex: 1;
     font-family: "Runescape";
-    font-size: 0.95em;
+    font-size: 1.1em;
     font-weight: bold;
     color: #e0d0b0;
     word-break: break-word;

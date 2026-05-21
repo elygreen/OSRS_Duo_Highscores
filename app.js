@@ -209,6 +209,141 @@ function refreshBaselinesIfNeeded(baselines, keys, liveSkills) {
     return needsSave;
 }
 
+// --- Rank History ---
+
+async function recordRankHistory(rankNum) {
+    // Write one document per day keyed by the daily period — safe to call every load,
+    // it only writes if today's entry doesn't exist yet.
+    try {
+        const key = getDailyPeriodKey();
+        const ref = doc(_db, "osrs_rank_history", key);
+        const snap = await getDoc(ref);
+        if (!snap.exists()) {
+            // Store a real timestamp so we can sort chronologically
+            const d = getAdjustedDate();
+            await setDoc(ref, {
+                rank: rankNum,
+                ts: Date.now(),
+                label: `${d.getDate()}/${d.getMonth() + 1}`
+            });
+        }
+    } catch (e) {
+        console.error("Could not record rank history:", e);
+    }
+}
+
+async function loadRankHistory() {
+    try {
+        const { getDocs, collection: fsCol, query: fsQuery, orderBy: fsOrderBy, limit: fsLimit }
+            = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+        const snap = await getDocs(
+            fsQuery(fsCol(_db, "osrs_rank_history"), fsOrderBy("ts", "asc"), fsLimit(90))
+        );
+        return snap.docs.map(d => d.data());
+    } catch (e) {
+        console.error("Could not load rank history:", e);
+        return [];
+    }
+}
+
+function renderRankChart(history) {
+    const canvas  = document.getElementById('rank-chart');
+    const empty   = document.getElementById('rank-chart-empty');
+
+    if (!history || history.length < 2) {
+        canvas.style.display = 'none';
+        empty.style.display  = 'block';
+        return;
+    }
+
+    canvas.style.display = 'block';
+    empty.style.display  = 'none';
+
+    // Size canvas to its CSS dimensions at device pixel ratio for sharpness
+    const dpr = window.devicePixelRatio || 1;
+    const W   = canvas.offsetWidth;
+    const H   = canvas.offsetHeight || 160;
+    canvas.width  = W * dpr;
+    canvas.height = H * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    const PAD = { top: 18, right: 16, bottom: 32, left: 52 };
+    const cW = W - PAD.left - PAD.right;
+    const cH = H - PAD.top  - PAD.bottom;
+
+    const ranks  = history.map(h => h.rank);
+    const minR   = Math.min(...ranks);
+    const maxR   = Math.max(...ranks);
+    const spread = maxR - minR || 1;
+
+    // Lower rank number = better, so flip Y: rank minR → top of chart
+    const toX = i  => PAD.left + (i / (history.length - 1)) * cW;
+    const toY = r  => PAD.top  + ((r - minR) / spread) * cH;
+
+    // Grid lines
+    ctx.strokeStyle = 'rgba(90,75,51,0.5)';
+    ctx.lineWidth   = 1;
+    const gridSteps = 4;
+    for (let i = 0; i <= gridSteps; i++) {
+        const y = PAD.top + (i / gridSteps) * cH;
+        ctx.beginPath();
+        ctx.moveTo(PAD.left, y);
+        ctx.lineTo(PAD.left + cW, y);
+        ctx.stroke();
+
+        // Y axis labels (rank numbers, flipped so better = higher on chart)
+        const labelRank = Math.round(minR + ((gridSteps - i) / gridSteps) * spread);
+        ctx.fillStyle    = '#7a6642';
+        ctx.font         = '11px monospace';
+        ctx.textAlign    = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(labelRank.toLocaleString(), PAD.left - 6, y);
+    }
+
+    // Line
+    ctx.beginPath();
+    ctx.strokeStyle = '#ff981f';
+    ctx.lineWidth   = 2.5;
+    ctx.lineJoin    = 'round';
+    history.forEach((h, i) => {
+        i === 0 ? ctx.moveTo(toX(i), toY(h.rank)) : ctx.lineTo(toX(i), toY(h.rank));
+    });
+    ctx.stroke();
+
+    // Fill under line
+    ctx.lineTo(toX(history.length - 1), PAD.top + cH);
+    ctx.lineTo(toX(0), PAD.top + cH);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255,152,31,0.10)';
+    ctx.fill();
+
+    // Dots + X labels
+    history.forEach((h, i) => {
+        const x = toX(i);
+        const y = toY(h.rank);
+
+        // Dot
+        ctx.beginPath();
+        ctx.arc(x, y, 3.5, 0, Math.PI * 2);
+        ctx.fillStyle   = '#ff981f';
+        ctx.strokeStyle = '#2a1e08';
+        ctx.lineWidth   = 1.5;
+        ctx.fill();
+        ctx.stroke();
+
+        // X axis date label — show every label if few points, else thin out
+        const showLabel = history.length <= 14 || i % Math.ceil(history.length / 14) === 0 || i === history.length - 1;
+        if (showLabel) {
+            ctx.fillStyle    = '#7a6642';
+            ctx.font         = '10px monospace';
+            ctx.textAlign    = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText(h.label, x, PAD.top + cH + 6);
+        }
+    });
+}
+
 // --- Display Rendering ---
 
 function compareAndPrepareDisplayData(currentData, baselines) {
@@ -248,9 +383,9 @@ function renderTable(elementId, data) {
     let html = `
         <table>
             <colgroup>
-                <col style="width: 24%">
-                <col style="width: 9%">
-                <col style="width: 19%">
+                <col style="width: 16%">
+                <col style="width: 8%">
+                <col style="width: 16%">
                 <col style="width: 16%">
                 <col style="width: 16%">
                 <col style="width: 16%">
@@ -324,6 +459,9 @@ async function fetchAndDisplayScores() {
         const currentRankNum = parseInt(rankText.replace(/,/g, ''));
 
         if (!isNaN(currentRankNum)) {
+            // Record today's rank for the history chart (no-op if already written today)
+            recordRankHistory(currentRankNum);
+
             const dailyKey = getDailyPeriodKey();
             let groupBaseline = null;
             try {
@@ -403,6 +541,10 @@ async function fetchGroupRank(groupName) {
 }
 
 fetchAndDisplayScores();
+
+// Load rank history and render the chart once on startup.
+// The chart doesn't need to refresh every 60s — daily granularity is enough.
+loadRankHistory().then(renderRankChart);
 
 // Re-fetch live scores every 60 seconds so XP gains appear without a manual refresh.
 // (Baselines in Firestore are unchanged — only the live hiscores poll is repeated.)
