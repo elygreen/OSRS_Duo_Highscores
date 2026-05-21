@@ -138,7 +138,7 @@ function parseCSVToSkills(csvText){
             rank: formatNumber(rank),
             level: level.toLocaleString(),
             rawLevel: level,
-            exp: formatNumber(exp),
+            exp: exp.toLocaleString(),
             rawExp: exp
         };
         skillsData.push(skillObject);
