@@ -1,3 +1,22 @@
+import { initializeApp }                          from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, addDoc,
+         deleteDoc, updateDoc, doc, getDoc, setDoc,
+         onSnapshot, serverTimestamp,
+         query, orderBy }                         from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+    apiKey:            "AIzaSyDAT1UIM1mFMH1vh_Wal4SqXOY6NSr0_6c",
+    authDomain:        "castle-mtg-stat-tracker.firebaseapp.com",
+    projectId:         "castle-mtg-stat-tracker",
+    storageBucket:     "castle-mtg-stat-tracker.firebasestorage.app",
+    messagingSenderId: "503581755862",
+    appId:             "1:503581755862:web:10222b71ae270b6ca03c77"
+};
+
+const _fbApp    = initializeApp(firebaseConfig, "osrs-tasks");
+const _db       = getFirestore(_fbApp);
+const _tasksCol = collection(_db, "osrs_duo_tasks");
+
 const USER_1_RSN = "Duo Ely";
 const USER_2_RSN = "Duo Lucian";
 const RESET_HOUR = 5;
@@ -142,7 +161,17 @@ async function loadBaselines(username) {
     try {
         const key = username.replace(/ /g, '_');
         const snap = await getDoc(doc(_db, "osrs_baselines", key));
-        return snap.exists() ? snap.data() : { daily: null, weekly: null, monthly: null };
+        if (!snap.exists()) return { daily: null, weekly: null, monthly: null };
+        const data = snap.data();
+        // Firestore stores arrays as numeric-keyed maps — convert back to real arrays
+        for (const period of ['daily', 'weekly', 'monthly']) {
+            if (data[period]?.skills && !Array.isArray(data[period].skills)) {
+                data[period].skills = Object.keys(data[period].skills)
+                    .sort((a, b) => Number(a) - Number(b))
+                    .map(k => data[period].skills[k]);
+            }
+        }
+        return data;
     } catch (e) {
         console.error("Could not load baselines from Firestore:", e);
         return { daily: null, weekly: null, monthly: null };
@@ -156,17 +185,24 @@ async function loadBaselines(username) {
  * If a baseline is missing or stale, it is replaced with the live data snapshot.
  * Returns true if any baseline was updated (so the caller knows to save).
  */
+function isBaselineValid(baseline, expectedPeriod) {
+    return baseline &&
+           baseline.period === expectedPeriod &&
+           Array.isArray(baseline.skills) &&
+           baseline.skills.length > 0;
+}
+
 function refreshBaselinesIfNeeded(baselines, keys, liveSkills) {
     let needsSave = false;
-    if (!baselines.daily || baselines.daily.period !== keys.daily) {
+    if (!isBaselineValid(baselines.daily, keys.daily)) {
         baselines.daily = { period: keys.daily, skills: liveSkills };
         needsSave = true;
     }
-    if (!baselines.weekly || baselines.weekly.period !== keys.weekly) {
+    if (!isBaselineValid(baselines.weekly, keys.weekly)) {
         baselines.weekly = { period: keys.weekly, skills: liveSkills };
         needsSave = true;
     }
-    if (!baselines.monthly || baselines.monthly.period !== keys.monthly) {
+    if (!isBaselineValid(baselines.monthly, keys.monthly)) {
         baselines.monthly = { period: keys.monthly, skills: liveSkills };
         needsSave = true;
     }
@@ -368,26 +404,22 @@ async function fetchGroupRank(groupName) {
 
 fetchAndDisplayScores();
 
+// Re-fetch live scores every 60 seconds so XP gains appear without a manual refresh.
+// (Baselines in Firestore are unchanged — only the live hiscores poll is repeated.)
+const REFRESH_INTERVAL_MS = 60_000;
+let _refreshTimer = setInterval(fetchAndDisplayScores, REFRESH_INTERVAL_MS);
+
+// Also re-fetch immediately when the tab becomes visible again after being hidden,
+// so a returning user always sees fresh data without waiting for the next tick.
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        clearInterval(_refreshTimer);
+        fetchAndDisplayScores();
+        _refreshTimer = setInterval(fetchAndDisplayScores, REFRESH_INTERVAL_MS);
+    }
+});
+
 // ── Task List (Firestore) ─────────────────────────────────────
-
-import { initializeApp }                          from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, addDoc,
-         deleteDoc, updateDoc, doc, getDoc, setDoc,
-         onSnapshot, serverTimestamp,
-         query, orderBy }                         from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-const firebaseConfig = {
-    apiKey:            "AIzaSyDAT1UIM1mFMH1vh_Wal4SqXOY6NSr0_6c",
-    authDomain:        "castle-mtg-stat-tracker.firebaseapp.com",
-    projectId:         "castle-mtg-stat-tracker",
-    storageBucket:     "castle-mtg-stat-tracker.firebasestorage.app",
-    messagingSenderId: "503581755862",
-    appId:             "1:503581755862:web:10222b71ae270b6ca03c77"
-};
-
-const _fbApp   = initializeApp(firebaseConfig, "osrs-tasks");
-const _db      = getFirestore(_fbApp);
-const _tasksCol = collection(_db, "osrs_duo_tasks");
 
 // ── Assignee toggle state ────────────────────────────────────
 
