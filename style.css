@@ -212,22 +212,41 @@ tr:first-child {
 /* ── Rank Chart ──────────────────────────────────────────── */
 
 .rank-chart-wrapper {
-    max-width: 900px;
+    max-width: 500px;
     margin: 6px auto 4px;
     background-color: #4b3617;
     border: 3px solid #332d1d;
     border-radius: 6px;
     box-shadow: 0 4px 10px rgba(0,0,0,0.7);
-    padding: 8px 16px 12px;
+    padding: 6px 8px 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .rank-chart-title {
-    margin-bottom: 6px;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    margin: 0;
+    padding: 0;
+    border-bottom: none;
+    border-left: 1px solid #554122;
+    padding-left: 6px;
+    padding-right: 0;
+    font-size: 0.85em;
+    white-space: normal;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.rank-chart-canvas-wrap {
+    flex: 1;
+    min-width: 0;
 }
 
 #rank-chart {
     width: 100%;
-    height: 160px;
+    height: 90px;
     display: block;
 }
 

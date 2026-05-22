@@ -262,13 +262,13 @@ function renderRankChart(history) {
     // Size canvas to its CSS dimensions at device pixel ratio for sharpness
     const dpr = window.devicePixelRatio || 1;
     const W   = canvas.offsetWidth;
-    const H   = canvas.offsetHeight || 160;
+    const H   = canvas.offsetHeight || 90;
     canvas.width  = W * dpr;
     canvas.height = H * dpr;
     const ctx = canvas.getContext('2d');
     ctx.scale(dpr, dpr);
 
-    const PAD = { top: 18, right: 16, bottom: 32, left: 52 };
+    const PAD = { top: 10, right: 8, bottom: 22, left: 36 };
     const cW = W - PAD.left - PAD.right;
     const cH = H - PAD.top  - PAD.bottom;
 
@@ -278,70 +278,167 @@ function renderRankChart(history) {
     const spread = maxR - minR || 1;
 
     // Lower rank number = better, so flip Y: rank minR → top of chart
-    const toX = i  => PAD.left + (i / (history.length - 1)) * cW;
-    const toY = r  => PAD.top  + ((r - minR) / spread) * cH;
+    const toX = i => PAD.left + (i / (history.length - 1)) * cW;
+    const toY = r => PAD.top  + ((r - minR) / spread) * cH;
 
-    // Grid lines
-    ctx.strokeStyle = 'rgba(90,75,51,0.5)';
-    ctx.lineWidth   = 1;
-    const gridSteps = 4;
-    for (let i = 0; i <= gridSteps; i++) {
-        const y = PAD.top + (i / gridSteps) * cH;
+    // Precompute point positions for hit-testing
+    const points = history.map((h, i) => ({ x: toX(i), y: toY(h.rank), rank: h.rank, label: h.label }));
+
+    function drawChart(hoveredIdx) {
+        ctx.clearRect(0, 0, W, H);
+
+        // Grid lines
+        ctx.strokeStyle = 'rgba(90,75,51,0.5)';
+        ctx.lineWidth   = 1;
+        const gridSteps = 4;
+        for (let i = 0; i <= gridSteps; i++) {
+            const y = PAD.top + (i / gridSteps) * cH;
+            ctx.beginPath();
+            ctx.moveTo(PAD.left, y);
+            ctx.lineTo(PAD.left + cW, y);
+            ctx.stroke();
+
+            // Y axis labels (rank numbers, flipped so better = higher on chart)
+            const labelRank = Math.round(minR + ((gridSteps - i) / gridSteps) * spread);
+            ctx.fillStyle    = '#7a6642';
+            ctx.font         = '11px monospace';
+            ctx.textAlign    = 'right';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(labelRank.toLocaleString(), PAD.left - 6, y);
+        }
+
+        // Crosshair vertical line for hovered point
+        if (hoveredIdx !== null) {
+            const hx = points[hoveredIdx].x;
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(255,152,31,0.25)';
+            ctx.lineWidth   = 1;
+            ctx.setLineDash([4, 3]);
+            ctx.moveTo(hx, PAD.top);
+            ctx.lineTo(hx, PAD.top + cH);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // Line
         ctx.beginPath();
-        ctx.moveTo(PAD.left, y);
-        ctx.lineTo(PAD.left + cW, y);
+        ctx.strokeStyle = '#ff981f';
+        ctx.lineWidth   = 2.5;
+        ctx.lineJoin    = 'round';
+        history.forEach((h, i) => {
+            i === 0 ? ctx.moveTo(toX(i), toY(h.rank)) : ctx.lineTo(toX(i), toY(h.rank));
+        });
         ctx.stroke();
 
-        // Y axis labels (rank numbers, flipped so better = higher on chart)
-        const labelRank = Math.round(minR + ((gridSteps - i) / gridSteps) * spread);
-        ctx.fillStyle    = '#7a6642';
-        ctx.font         = '11px monospace';
-        ctx.textAlign    = 'right';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(labelRank.toLocaleString(), PAD.left - 6, y);
+        // Fill under line
+        ctx.lineTo(toX(history.length - 1), PAD.top + cH);
+        ctx.lineTo(toX(0), PAD.top + cH);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(255,152,31,0.10)';
+        ctx.fill();
+
+        // Dots + X labels
+        history.forEach((h, i) => {
+            const { x, y } = points[i];
+            const isHovered = i === hoveredIdx;
+
+            ctx.beginPath();
+            ctx.arc(x, y, isHovered ? 6 : 3.5, 0, Math.PI * 2);
+            ctx.fillStyle   = isHovered ? 'gold' : '#ff981f';
+            ctx.strokeStyle = '#2a1e08';
+            ctx.lineWidth   = isHovered ? 2 : 1.5;
+            ctx.fill();
+            ctx.stroke();
+
+            // X axis date label — show every label if few points, else thin out
+            const showLabel = history.length <= 14 || i % Math.ceil(history.length / 14) === 0 || i === history.length - 1;
+            if (showLabel) {
+                ctx.fillStyle    = isHovered ? '#ff981f' : '#7a6642';
+                ctx.font         = isHovered ? 'bold 10px monospace' : '10px monospace';
+                ctx.textAlign    = 'center';
+                ctx.textBaseline = 'top';
+                ctx.fillText(h.label, x, PAD.top + cH + 6);
+            }
+        });
+
+        // Tooltip for hovered point
+        if (hoveredIdx !== null) {
+            const pt  = points[hoveredIdx];
+            const txt = `Rank ${pt.rank.toLocaleString()}  •  ${pt.label}`;
+
+            ctx.font = 'bold 12px monospace';
+            const TW  = ctx.measureText(txt).width;
+            const TPW = TW + 16;
+            const TPH = 24;
+            const TPR = 4; // corner radius
+
+            // Position: above the dot, clamped within canvas
+            let tx = pt.x - TPW / 2;
+            tx = Math.max(PAD.left, Math.min(tx, W - PAD.right - TPW));
+            const ty = Math.max(PAD.top, pt.y - TPH - 10);
+
+            // Box
+            ctx.beginPath();
+            ctx.moveTo(tx + TPR, ty);
+            ctx.lineTo(tx + TPW - TPR, ty);
+            ctx.arcTo(tx + TPW, ty, tx + TPW, ty + TPR, TPR);
+            ctx.lineTo(tx + TPW, ty + TPH - TPR);
+            ctx.arcTo(tx + TPW, ty + TPH, tx + TPW - TPR, ty + TPH, TPR);
+            ctx.lineTo(tx + TPR, ty + TPH);
+            ctx.arcTo(tx, ty + TPH, tx, ty + TPH - TPR, TPR);
+            ctx.lineTo(tx, ty + TPR);
+            ctx.arcTo(tx, ty, tx + TPR, ty, TPR);
+            ctx.closePath();
+            ctx.fillStyle   = '#1e1200';
+            ctx.strokeStyle = '#ff981f';
+            ctx.lineWidth   = 1.5;
+            ctx.fill();
+            ctx.stroke();
+
+            // Text
+            ctx.fillStyle    = 'gold';
+            ctx.textAlign    = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(txt, tx + 8, ty + TPH / 2);
+        }
     }
 
-    // Line
-    ctx.beginPath();
-    ctx.strokeStyle = '#ff981f';
-    ctx.lineWidth   = 2.5;
-    ctx.lineJoin    = 'round';
-    history.forEach((h, i) => {
-        i === 0 ? ctx.moveTo(toX(i), toY(h.rank)) : ctx.lineTo(toX(i), toY(h.rank));
-    });
-    ctx.stroke();
+    // Initial draw
+    drawChart(null);
 
-    // Fill under line
-    ctx.lineTo(toX(history.length - 1), PAD.top + cH);
-    ctx.lineTo(toX(0), PAD.top + cH);
-    ctx.closePath();
-    ctx.fillStyle = 'rgba(255,152,31,0.10)';
-    ctx.fill();
+    // Hover interaction — find the nearest point within a snap radius
+    const SNAP_PX = 30;
 
-    // Dots + X labels
-    history.forEach((h, i) => {
-        const x = toX(i);
-        const y = toY(h.rank);
+    function onMouseMove(e) {
+        const rect   = canvas.getBoundingClientRect();
+        const scaleX = W / rect.width;
+        const mx     = (e.clientX - rect.left) * scaleX;
+        const my     = (e.clientY - rect.top)  * scaleX;
 
-        // Dot
-        ctx.beginPath();
-        ctx.arc(x, y, 3.5, 0, Math.PI * 2);
-        ctx.fillStyle   = '#ff981f';
-        ctx.strokeStyle = '#2a1e08';
-        ctx.lineWidth   = 1.5;
-        ctx.fill();
-        ctx.stroke();
+        let closest = null;
+        let minDist = Infinity;
+        points.forEach((pt, i) => {
+            const d = Math.hypot(mx - pt.x, my - pt.y);
+            if (d < minDist) { minDist = d; closest = i; }
+        });
 
-        // X axis date label — show every label if few points, else thin out
-        const showLabel = history.length <= 14 || i % Math.ceil(history.length / 14) === 0 || i === history.length - 1;
-        if (showLabel) {
-            ctx.fillStyle    = '#7a6642';
-            ctx.font         = '10px monospace';
-            ctx.textAlign    = 'center';
-            ctx.textBaseline = 'top';
-            ctx.fillText(h.label, x, PAD.top + cH + 6);
-        }
-    });
+        const hit = minDist <= SNAP_PX ? closest : null;
+        canvas.style.cursor = hit !== null ? 'pointer' : 'default';
+        drawChart(hit);
+    }
+
+    function onMouseLeave() {
+        canvas.style.cursor = 'default';
+        drawChart(null);
+    }
+
+    // Remove any previously attached listeners before re-attaching
+    canvas._rankMoveHandler  && canvas.removeEventListener('mousemove',  canvas._rankMoveHandler);
+    canvas._rankLeaveHandler && canvas.removeEventListener('mouseleave', canvas._rankLeaveHandler);
+    canvas._rankMoveHandler  = onMouseMove;
+    canvas._rankLeaveHandler = onMouseLeave;
+    canvas.addEventListener('mousemove',  onMouseMove);
+    canvas.addEventListener('mouseleave', onMouseLeave);
 }
 
 // --- Display Rendering ---
