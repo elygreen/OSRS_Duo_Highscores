@@ -262,13 +262,13 @@ function renderRankChart(history) {
     // Size canvas to its CSS dimensions at device pixel ratio for sharpness
     const dpr = window.devicePixelRatio || 1;
     const W   = canvas.offsetWidth;
-    const H   = canvas.offsetHeight || 90;
+    const H   = canvas.offsetHeight || 60;
     canvas.width  = W * dpr;
     canvas.height = H * dpr;
     const ctx = canvas.getContext('2d');
     ctx.scale(dpr, dpr);
 
-    const PAD = { top: 10, right: 8, bottom: 22, left: 36 };
+    const PAD = { top: 6, right: 6, bottom: 16, left: 6 };
     const cW = W - PAD.left - PAD.right;
     const cH = H - PAD.top  - PAD.bottom;
 
@@ -298,13 +298,6 @@ function renderRankChart(history) {
             ctx.lineTo(PAD.left + cW, y);
             ctx.stroke();
 
-            // Y axis labels (rank numbers, flipped so better = higher on chart)
-            const labelRank = Math.round(minR + ((gridSteps - i) / gridSteps) * spread);
-            ctx.fillStyle    = '#7a6642';
-            ctx.font         = '11px monospace';
-            ctx.textAlign    = 'right';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(labelRank.toLocaleString(), PAD.left - 6, y);
         }
 
         // Crosshair vertical line for hovered point

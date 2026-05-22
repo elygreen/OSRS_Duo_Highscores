@@ -11,23 +11,26 @@
 
     <body>
         <header>
-            <a href="https://secure.runescape.com/m=hiscore_oldschool_ironman/group-ironman/?groupName=Castle+Duo" id="title-link" target="_blank" rel="noopener noreferrer">
-                <img src="images/head_ely.png" alt="Ely" class="header-head head-ely">
-                <h1>Ely & Lucian's Duo Highscores</h1>
-                <img src="images/head_lucian.png" alt="Lucian" class="header-head">
-            </a>
-            <div id="group-rank">Castle Duo Rank: Loading...</div>
+            <div class="header-inner">
+                <div class="header-left">
+                    <a href="https://secure.runescape.com/m=hiscore_oldschool_ironman/group-ironman/?groupName=Castle+Duo" id="title-link" target="_blank" rel="noopener noreferrer">
+                        <img src="images/head_ely.png" alt="Ely" class="header-head head-ely">
+                        <h1>Ely & Lucian's Duo Highscores</h1>
+                        <img src="images/head_lucian.png" alt="Lucian" class="header-head">
+                    </a>
+                    <div id="group-rank">Castle Duo Rank: Loading...</div>
+                </div>
+                <div class="rank-chart-wrapper">
+                    <h2 class="rank-chart-title">Group Rank<br>History</h2>
+                    <div class="rank-chart-canvas-wrap">
+                        <canvas id="rank-chart"></canvas>
+                        <div id="rank-chart-empty" class="rank-chart-empty">No rank history yet — check back tomorrow!</div>
+                    </div>
+                </div>
+            </div>
         </header>
 
         <div id="error-message" class="error-message" style="display:none;">
-        </div>
-
-        <div class="rank-chart-wrapper">
-            <h2 class="rank-chart-title">Group Rank<br>History</h2>
-            <div class="rank-chart-canvas-wrap">
-                <canvas id="rank-chart"></canvas>
-                <div id="rank-chart-empty" class="rank-chart-empty">No rank history yet — check back tomorrow!</div>
-            </div>
         </div>
 
         <div class="highscores-container">
