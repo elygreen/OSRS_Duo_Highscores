@@ -262,13 +262,13 @@ function renderRankChart(history) {
     // Size canvas to its CSS dimensions at device pixel ratio for sharpness
     const dpr = window.devicePixelRatio || 1;
     const W   = canvas.offsetWidth;
-    const H   = canvas.offsetHeight || 60;
+    const H   = canvas.offsetHeight || 90;
     canvas.width  = W * dpr;
     canvas.height = H * dpr;
     const ctx = canvas.getContext('2d');
     ctx.scale(dpr, dpr);
 
-    const PAD = { top: 6, right: 6, bottom: 16, left: 6 };
+    const PAD = { top: 36, right: 8, bottom: 16, left: 8 };
     const cW = W - PAD.left - PAD.right;
     const cH = H - PAD.top  - PAD.bottom;
 
