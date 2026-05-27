@@ -193,6 +193,17 @@ function isBaselineValid(baseline, expectedPeriod) {
 }
 
 function refreshBaselinesIfNeeded(baselines, keys, liveSkills) {
+    // Snapshot the old baselines BEFORE mutating, so the current render cycle
+    // can still display gains against the previous snapshot. Without this, a
+    // stale/missing baseline gets set to the live data and then immediately
+    // compared against itself — producing 0 for "Day" while "Week" (which has
+    // an older baseline) shows the full accumulated gain incorrectly.
+    const displayBaselines = {
+        daily:   baselines.daily,
+        weekly:  baselines.weekly,
+        monthly: baselines.monthly,
+    };
+
     let needsSave = false;
     if (!isBaselineValid(baselines.daily, keys.daily)) {
         baselines.daily = { period: keys.daily, skills: liveSkills };
@@ -206,7 +217,8 @@ function refreshBaselinesIfNeeded(baselines, keys, liveSkills) {
         baselines.monthly = { period: keys.monthly, skills: liveSkills };
         needsSave = true;
     }
-    return needsSave;
+    // Return the pre-mutation snapshot for display, and whether a save is needed
+    return { needsSave, displayBaselines };
 }
 
 // --- Rank History ---
@@ -583,20 +595,30 @@ async function fetchAndDisplayScores() {
     }
 
     // Handle each player's hiscores
-    const allLive = playerData.map((pd, idx) => {
+    const allLive = [];
+    const allDisplayBaselines = [];
+    for (let idx = 0; idx < playerData.length; idx++) {
+        const pd = playerData[idx];
         if (!pd.live) {
             document.getElementById(players[idx].tableId).innerHTML =
                 `<p class="error-message">Highscores not found for **${players[idx].rsn}**. Check spelling.</p>`;
-            return null;
+            allLive.push(null);
+            allDisplayBaselines.push(null);
+            continue;
         }
-        if (refreshBaselinesIfNeeded(pd.baselines, keys, pd.live)) {
+        // refreshBaselinesIfNeeded returns the pre-mutation snapshot for display
+        // so that a newly-initialised baseline isn't compared against itself (which
+        // would make daily gains appear as 0 while weekly shows the full difference).
+        const { needsSave, displayBaselines } = refreshBaselinesIfNeeded(pd.baselines, keys, pd.live);
+        if (needsSave) {
             saveBaselines(players[idx].rsn, pd.baselines);
         }
-        return pd.live;
-    });
+        allLive.push(pd.live);
+        allDisplayBaselines.push(displayBaselines);
+    }
 
     if (allLive.every(Boolean)) {
-        players.forEach((p, idx) => renderTable(p.tableId, compareAndPrepareDisplayData(allLive[idx], playerData[idx].baselines)));
+        players.forEach((p, idx) => renderTable(p.tableId, compareAndPrepareDisplayData(allLive[idx], allDisplayBaselines[idx])));
     }
 }
 
